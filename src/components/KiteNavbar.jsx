@@ -14,7 +14,8 @@ import {
   Smartphone, 
   Search,
   Menu,
-  Lock
+  Lock,
+  User
 } from 'lucide-react';
 import { formatCurrency, formatPercent, isIndianMarketOpen } from '../utils/formatters';
 import { getIndianMarketStatus, getUSMarketStatus } from '../utils/marketHours';
@@ -314,15 +315,6 @@ export default function KiteNavbar({
           </button>
 
           <button
-            className={`nav-tab ${activeTab === 'funds' ? 'active' : ''}`}
-            onClick={() => setActiveTab('funds')}
-            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
-          >
-            <CreditCard size={13} />
-            <span>Funds</span>
-          </button>
-
-          <button
             className={`nav-tab ${activeTab === 'journal' ? 'active' : ''}`}
             onClick={() => setActiveTab('journal')}
             style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
@@ -339,10 +331,19 @@ export default function KiteNavbar({
             <GraduationCap size={13} />
             <span>Learn</span>
           </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <User size={13} />
+            <span>Profile</span>
+          </button>
         </div>
 
-        {/* 3. RIGHT: Search, Tips, PWA, Margin & Mobile Menu Button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        {/* 3. RIGHT: Search, Margin & Profile */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           {/* Universal Search Button */}
           <button
             onClick={onOpenSearch}
@@ -356,66 +357,16 @@ export default function KiteNavbar({
               alignItems: 'center', 
               gap: '5px' 
             }}
-            title="Search Any Stock or Index"
+            title="Search Any Stock or Index (Ctrl+K)"
           >
             <Search size={13} color="#38bdf8" />
             <span className="hide-mobile" style={{ color: '#cbd5e1' }}>Search</span>
             <span className="hide-mobile" style={{ fontSize: '0.62rem', background: '#1e293b', padding: '1px 3px', borderRadius: '3px', color: '#94a3b8' }}>/</span>
           </button>
 
-          {/* Interactive Trading Tips Button (Desktop Only) */}
-          <button
-            onClick={onOpenTips}
-            className="hide-mobile"
-            style={{
-              background: 'rgba(245, 158, 11, 0.12)',
-              border: '1px solid rgba(245, 158, 11, 0.4)',
-              color: '#f59e0b',
-              padding: '5px 8px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              whiteSpace: 'nowrap'
-            }}
-            title="Beginner Trading Guide & Quick Tips"
-          >
-            <Lightbulb size={13} />
-            <span>Tips</span>
-          </button>
-
-          {/* Install App Button (Desktop Only) */}
-          {!isInstalled && (
-            <button
-              onClick={handleInstallClick}
-              className="hide-mobile"
-              style={{
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15))',
-                border: '1px solid rgba(16, 185, 129, 0.4)',
-                color: '#10b981',
-                padding: '5px 8px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                whiteSpace: 'nowrap'
-              }}
-              title="Install App on Device"
-            >
-              <Smartphone size={12} />
-              <span>App</span>
-            </button>
-          )}
-
-          {/* Margin Badge (Desktop Only - Mobile has it in Funds tab) */}
+          {/* Margin Badge (Links to Profile & Funds) */}
           <div 
-            onClick={onOpenFunds}
+            onClick={() => setActiveTab('profile')}
             className="hide-mobile"
             style={{ 
               cursor: 'pointer', 
@@ -427,7 +378,7 @@ export default function KiteNavbar({
               alignItems: 'center',
               gap: '5px'
             }}
-            title="Available Trading Margin"
+            title="View Trading Funds & Margin in Profile"
           >
             <div>
               <div style={{ fontSize: '0.55rem', color: '#64748b', textTransform: 'uppercase', lineHeight: 1 }}>Margin</div>
@@ -438,62 +389,25 @@ export default function KiteNavbar({
             <Plus size={11} color="#10b981" />
           </div>
 
-          {/* Quick Screen Lock Button (Compact on mobile) */}
-          {currentUser && (
-            <button
-              type="button"
-              onClick={onLockScreen}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '6px 9px',
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid #1e293b',
-                borderRadius: '8px',
-                color: '#94a3b8',
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                flexShrink: 0
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#f8fafc';
-                e.currentTarget.style.borderColor = '#10b981';
-                e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#94a3b8';
-                e.currentTarget.style.borderColor = '#1e293b';
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-              }}
-              title="Lock Terminal Screen (Ctrl+L)"
-            >
-              <Lock size={13} color="#10b981" />
-              <span className="hide-mobile">Lock</span>
-            </button>
-          )}
-
-          {/* User Account Profile Pill (Compact avatar on mobile) */}
+          {/* User Account Profile Pill */}
           {currentUser ? (
             <div
-              onClick={onOpenAuth}
+              onClick={() => setActiveTab('profile')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '4px 8px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid #222f44',
+                padding: '4px 10px',
+                background: activeTab === 'profile' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                border: activeTab === 'profile' ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid #222f44',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
                 flexShrink: 0
               }}
-              title={`Account: ${currentUser.name}`}
+              title="Open Profile & Account Hub"
             >
-              <div style={{ width: '24px', height: '24px', borderRadius: '50%', overflow: 'hidden', border: '1.5px solid #38bdf8', flexShrink: 0 }}>
+              <div style={{ width: '24px', height: '24px', borderRadius: '50%', overflow: 'hidden', border: '1.5px solid #10b981', flexShrink: 0 }}>
                 <img src={currentUser.picture} alt={currentUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
 

@@ -23,6 +23,7 @@ import MobileMenuDrawer from './components/MobileMenuDrawer';
 import GoogleAuthModal from './components/GoogleAuthModal';
 import LoginPage from './components/LoginPage';
 import ScreenLockModal from './components/ScreenLockModal';
+import ProfileTab from './components/ProfileTab';
 import { isAnyMarketOpen, shouldPollSymbol } from './utils/marketHours';
 
 // Responsive hook: true when viewport is mobile/tablet width
@@ -622,12 +623,18 @@ export default function App() {
             />
           )}
 
-          {/* TAB 6: FUNDS */}
-          {activeTab === 'funds' && (
-            <KiteFunds
+          {/* TAB 6: PROFILE & ACCOUNT HUB (Includes Funds, Security, Preferences) */}
+          {(activeTab === 'profile' || activeTab === 'funds' || activeTab === 'settings') && (
+            <ProfileTab
+              currentUser={currentUser}
               portfolio={portfolio}
               onUpdateFunds={handleUpdateFunds}
               onResetPortfolio={handleResetPortfolio}
+              onLogout={handleLogout}
+              onLockScreen={handleLockScreen}
+              beginnerMode={beginnerMode}
+              setBeginnerMode={setBeginnerMode}
+              onOpenTips={() => setIsTipsOpen(true)}
             />
           )}
 

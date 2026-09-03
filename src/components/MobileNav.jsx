@@ -3,7 +3,7 @@ import {
   CandlestickChart,
   ListOrdered,
   Briefcase,
-  CreditCard,
+  User,
   List
 } from 'lucide-react';
 
@@ -13,7 +13,7 @@ export default function MobileNav({ activeTab, setActiveTab, onOpenWatchlist }) 
     { id: 'terminal', label: 'Trade', icon: CandlestickChart, action: () => setActiveTab('terminal') },
     { id: 'orders', label: 'Orders', icon: ListOrdered, action: () => setActiveTab('orders') },
     { id: 'holdings', label: 'Portfolio', icon: Briefcase, action: () => setActiveTab('holdings') },
-    { id: 'funds', label: 'Funds', icon: CreditCard, action: () => setActiveTab('funds') },
+    { id: 'profile', label: 'Profile', icon: User, action: () => setActiveTab('profile') },
   ];
 
   return (
