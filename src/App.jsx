@@ -22,6 +22,7 @@ import TipsModal from './components/TipsModal';
 import MobileMenuDrawer from './components/MobileMenuDrawer';
 import GoogleAuthModal from './components/GoogleAuthModal';
 import LoginPage from './components/LoginPage';
+import ScreenLockModal from './components/ScreenLockModal';
 import { isAnyMarketOpen, shouldPollSymbol } from './utils/marketHours';
 
 // Responsive hook: true when viewport is mobile/tablet width
@@ -106,6 +107,44 @@ export default function App() {
     setCurrentUser(null);
     setIsAuthOpen(false);
   };
+
+  // Terminal Screen Lock State
+  const [isScreenLocked, setIsScreenLocked] = useState(() => {
+    return sessionStorage.getItem('ax_screen_locked') === 'true';
+  });
+
+  const handleLockScreen = useCallback(() => {
+    setIsScreenLocked(true);
+    sessionStorage.setItem('ax_screen_locked', 'true');
+  }, []);
+
+  const handleUnlockScreen = useCallback(() => {
+    setIsScreenLocked(false);
+    sessionStorage.removeItem('ax_screen_locked');
+  }, []);
+
+  // Keyboard shortcut: Ctrl+L or Cmd+L to quickly lock/unlock terminal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'l' || e.key === 'L')) {
+        e.preventDefault();
+        if (currentUser) {
+          setIsScreenLocked(prev => {
+            const next = !prev;
+            if (next) {
+              sessionStorage.setItem('ax_screen_locked', 'true');
+            } else {
+              sessionStorage.removeItem('ax_screen_locked');
+            }
+            return next;
+          });
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentUser]);
+
   const [orderModalConfig, setOrderModalConfig] = useState({
     isOpen: false,
     quote: null,
@@ -370,6 +409,7 @@ export default function App() {
         onToggleWatchlist={() => setShowMobileWatchlist(true)}
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onLockScreen={handleLockScreen}
       />
 
       {/* Main Body with 2-Column Split Layout */}
@@ -679,6 +719,14 @@ export default function App() {
         onClose={() => setIsAuthOpen(false)}
         currentUser={currentUser}
         onLoginSuccess={handleLoginSuccess}
+        onLogout={handleLogout}
+      />
+
+      {/* Screen Lock Privacy Modal */}
+      <ScreenLockModal
+        isOpen={isScreenLocked}
+        onUnlock={handleUnlockScreen}
+        currentUser={currentUser}
         onLogout={handleLogout}
       />
     </div>

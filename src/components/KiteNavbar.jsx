@@ -13,15 +13,16 @@ import {
   Plus, 
   Smartphone, 
   Search,
-  Menu
+  Menu,
+  Lock
 } from 'lucide-react';
 import { formatCurrency, formatPercent, isIndianMarketOpen } from '../utils/formatters';
 import { getIndianMarketStatus, getUSMarketStatus } from '../utils/marketHours';
 
 export default function KiteNavbar({ 
-  portfolio, 
-  indices, 
-  activeTab, 
+  portfolio = null, 
+  indices = null, 
+  activeTab = 'terminal', 
   setActiveTab, 
   onOpenSearch, 
   onOpenFunds,
@@ -32,7 +33,8 @@ export default function KiteNavbar({
   onOpenMobileMenu,
   onToggleWatchlist,
   currentUser = null,
-  onOpenAuth
+  onOpenAuth,
+  onLockScreen
 }) {
   const isMarketOpen = isIndianMarketOpen();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -433,6 +435,42 @@ export default function KiteNavbar({
             </div>
             <Plus size={11} color="#10b981" />
           </div>
+
+          {/* Quick Screen Lock Button */}
+          {currentUser && (
+            <button
+              type="button"
+              onClick={onLockScreen}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 9px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid #1e293b',
+                borderRadius: '8px',
+                color: '#94a3b8',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#f8fafc';
+                e.currentTarget.style.borderColor = '#10b981';
+                e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#94a3b8';
+                e.currentTarget.style.borderColor = '#1e293b';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+              }}
+              title="Lock Terminal Screen (Ctrl+L)"
+            >
+              <Lock size={12} color="#10b981" />
+              <span>Lock</span>
+            </button>
+          )}
 
           {/* User Account Profile Pill */}
           {currentUser ? (
