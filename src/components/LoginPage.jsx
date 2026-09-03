@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, TrendingUp, Zap, Lock, BarChart3, Database } from 'lucide-react';
+import { TrendingUp, Zap, BarChart3, Shield } from 'lucide-react';
 import { getIndianMarketStatus, getUSMarketStatus } from '../utils/marketHours';
 
 export default function LoginPage({ onLoginSuccess }) {
@@ -22,10 +22,6 @@ export default function LoginPage({ onLoginSuccess }) {
     return () => clearInterval(timer);
   }, []);
 
-  const [traderName, setTraderName] = useState(() => {
-    return localStorage.getItem('ax_trader_name') || 'Pranavesh';
-  });
-
   // Initialize Google Identity Services
   useEffect(() => {
     const initGoogle = () => {
@@ -37,6 +33,21 @@ export default function LoginPage({ onLoginSuccess }) {
             auto_select: false,
             cancel_on_tap_outside: true
           });
+
+          // Render official Google button if container exists
+          const container = document.getElementById('google-btn-container');
+          if (container) {
+            container.innerHTML = '';
+            window.google.accounts.id.renderButton(container, {
+              theme: 'outline',
+              size: 'large',
+              type: 'standard',
+              shape: 'rectangular',
+              text: 'signin_with',
+              logo_alignment: 'left',
+              width: 380
+            });
+          }
         } catch (err) {
           console.warn('Google GSI init notice:', err);
         }
@@ -66,10 +77,6 @@ export default function LoginPage({ onLoginSuccess }) {
       });
       const data = await res.json();
       if (data.success && data.data?.user) {
-        if (data.data.user.name) {
-          setTraderName(data.data.user.name);
-          localStorage.setItem('ax_trader_name', data.data.user.name);
-        }
         onLoginSuccess(data.data.user);
       } else {
         throw new Error(data.error || 'Authentication failed');
@@ -82,27 +89,25 @@ export default function LoginPage({ onLoginSuccess }) {
   };
 
   const handleGoogleClick = () => {
-    // 1. If Google OAuth popup is available, attempt it in background
+    // 1. Try Google OAuth2 Interactive Popup
     if (window.google?.accounts?.oauth2 && googleClientId) {
       try {
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: googleClientId,
-          scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+          scope: 'openid profile email',
           callback: async (tokenResponse) => {
             if (tokenResponse && tokenResponse.access_token) {
+              setLoading(true);
               try {
                 const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                   headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
                 });
                 const info = await infoRes.json();
                 if (info && info.email) {
-                  const googleName = info.name || info.given_name || traderName;
-                  setTraderName(googleName);
-                  localStorage.setItem('ax_trader_name', googleName);
                   await triggerLoginWithProfile({
                     email: info.email,
-                    name: googleName,
-                    picture: info.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(googleName)}&backgroundColor=10b981,0284c7&textColor=ffffff`
+                    name: info.name || info.given_name || info.email.split('@')[0],
+                    picture: info.picture
                   });
                   return;
                 }
@@ -113,23 +118,31 @@ export default function LoginPage({ onLoginSuccess }) {
           }
         });
         client.requestAccessToken();
+        return;
       } catch (err) {
         console.warn('Token client notice:', err);
       }
     }
 
-    // 2. Immediately execute login so the user enters terminal with their name
-    triggerLoginWithProfile();
+    // 2. Fallback: Google One-Tap
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          triggerLoginWithProfile();
+        }
+      });
+    } else {
+      triggerLoginWithProfile();
+    }
   };
 
   const triggerLoginWithProfile = async (customProfile = null) => {
     setLoading(true);
     setError(null);
-    const finalName = customProfile?.name || traderName.trim() || 'Pranavesh';
     const profile = customProfile || {
-      email: `${finalName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
-      name: finalName,
-      picture: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(finalName)}&backgroundColor=10b981,0284c7&textColor=ffffff`
+      email: 'trader@gmail.com',
+      name: 'Trader',
+      picture: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
     };
 
     try {
@@ -154,72 +167,55 @@ export default function LoginPage({ onLoginSuccess }) {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'radial-gradient(ellipse at 50% 15%, #0d1a2d 0%, #060911 75%)',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'space-between',
+      background: '#060a12',
+      color: '#f8fafc',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       position: 'relative',
-      overflow: 'hidden',
-      color: '#fff',
-      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      overflow: 'hidden'
     }}>
       
-      {/* Ambient Grid Background Overlay */}
+      {/* Background Ambient Glows */}
       <div style={{
         position: 'absolute',
-        inset: 0,
-        backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)',
-        backgroundSize: '40px 40px',
-        pointerEvents: 'none',
-        opacity: 0.8
-      }} />
-
-      {/* Top Ambient Glow */}
-      <div style={{
-        position: 'absolute',
-        top: '-150px',
+        top: '-15%',
         left: '50%',
         transform: 'translateX(-50%)',
-        width: '600px',
-        height: '300px',
-        background: 'radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(56, 189, 248, 0.1) 60%, transparent 80%)',
-        filter: 'blur(50px)',
-        pointerEvents: 'none'
+        width: '800px',
+        height: '500px',
+        background: 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.12) 0%, rgba(56, 189, 248, 0.05) 50%, transparent 80%)',
+        filter: 'blur(70px)',
+        pointerEvents: 'none',
+        zIndex: 1
       }} />
 
       {/* Top Navbar */}
       <header style={{
-        padding: '20px 32px',
+        height: '64px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        position: 'relative',
-        zIndex: 10,
+        padding: '0 32px',
         borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        backdropFilter: 'blur(10px)',
-        background: 'rgba(6, 9, 17, 0.6)'
+        position: 'relative',
+        zIndex: 10
       }}>
-        {/* Brand */}
+        {/* Brand Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
             overflow: 'hidden',
-            border: '1px solid rgba(16, 185, 129, 0.5)',
-            boxShadow: '0 0 15px rgba(16, 185, 129, 0.35)',
-            background: '#04070e',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            border: '1.5px solid rgba(16, 185, 129, 0.6)',
+            boxShadow: '0 0 14px rgba(16, 185, 129, 0.3)'
           }}>
             <img src="/logo.png" alt="Apex Trading" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontWeight: 900, fontSize: '1.15rem', color: '#fff', letterSpacing: '-0.03em' }}>
-              APEX<span style={{ color: '#10b981', fontSize: '0.88rem', fontWeight: 800, marginLeft: '3px' }}>TRADING</span>
-            </span>
-          </div>
+          <span style={{ fontWeight: 900, fontSize: '1.15rem', color: '#fff', letterSpacing: '-0.03em' }}>
+            APEX<span style={{ color: '#10b981', fontSize: '0.88rem', fontWeight: 800, marginLeft: '3px' }}>TRADING</span>
+          </span>
         </div>
 
         {/* Live Market Hours Status */}
@@ -277,13 +273,13 @@ export default function LoginPage({ onLoginSuccess }) {
         zIndex: 10
       }}>
         <div style={{
-          width: '450px',
+          width: '440px',
           maxWidth: '100%',
           background: 'linear-gradient(180deg, #0e1626 0%, #070c16 100%)',
           border: '1px solid rgba(56, 189, 248, 0.18)',
           borderRadius: '24px',
-          padding: '40px 32px',
-          boxShadow: '0 30px 100px rgba(0, 0, 0, 0.85), 0 0 60px rgba(16, 185, 129, 0.14)',
+          padding: '44px 32px',
+          boxShadow: '0 30px 100px rgba(0, 0, 0, 0.85), 0 0 60px rgba(16, 185, 129, 0.12)',
           textAlign: 'center',
           position: 'relative',
           overflow: 'hidden'
@@ -304,12 +300,12 @@ export default function LoginPage({ onLoginSuccess }) {
 
           {/* Logo */}
           <div style={{
-            width: '68px',
-            height: '68px',
-            borderRadius: '18px',
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
             margin: '0 auto 20px auto',
             overflow: 'hidden',
-            boxShadow: '0 10px 35px rgba(16, 185, 129, 0.5)',
+            boxShadow: '0 10px 30px rgba(16, 185, 129, 0.4)',
             border: '1px solid rgba(16, 185, 129, 0.6)',
             background: '#050912',
             display: 'flex',
@@ -323,7 +319,7 @@ export default function LoginPage({ onLoginSuccess }) {
             Sign in to Apex Trading
           </h1>
           <p style={{ fontSize: '0.88rem', color: '#94a3b8', margin: '0 0 28px 0', lineHeight: 1.5 }}>
-            Access your private trading terminal with dedicated cloud database synchronization.
+            Practice real-time equities & derivatives trading with live market feeds.
           </p>
 
           {error && (
@@ -340,38 +336,10 @@ export default function LoginPage({ onLoginSuccess }) {
             </div>
           )}
 
-          {/* Trader Name Input */}
-          <div style={{ textAlign: 'left', marginBottom: '18px' }}>
-            <label style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700, display: 'block', marginBottom: '6px', letterSpacing: '0.3px' }}>
-              YOUR TRADER NAME
-            </label>
-            <input
-              type="text"
-              value={traderName}
-              onChange={(e) => {
-                setTraderName(e.target.value);
-                localStorage.setItem('ax_trader_name', e.target.value);
-              }}
-              placeholder="e.g. Pranavesh"
-              style={{
-                width: '100%',
-                background: '#070c16',
-                border: '1px solid #1e293b',
-                color: '#f8fafc',
-                padding: '11px 14px',
-                borderRadius: '12px',
-                fontSize: '0.95rem',
-                fontWeight: 600,
-                outline: 'none',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.2s ease'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#10b981'}
-              onBlur={(e) => e.target.style.borderColor = '#1e293b'}
-            />
-          </div>
+          {/* Official Google Button Container */}
+          <div id="google-btn-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}></div>
 
-          {/* Official Google Sign-In Button */}
+          {/* Primary Sign-In Button */}
           <button
             type="button"
             onClick={handleGoogleClick}
@@ -382,7 +350,7 @@ export default function LoginPage({ onLoginSuccess }) {
               color: '#1f2937',
               border: 'none',
               padding: '14px 22px',
-              borderRadius: '14px',
+              borderRadius: '12px',
               fontWeight: 600,
               fontSize: '1rem',
               fontFamily: "'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, sans-serif",
@@ -391,26 +359,23 @@ export default function LoginPage({ onLoginSuccess }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '12px',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0,0,0,0.25)',
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              position: 'relative'
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.45)',
+              transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
               if (!loading) {
                 e.currentTarget.style.backgroundColor = '#f8fafc';
                 e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 255, 255, 0.18), 0 4px 12px rgba(0,0,0,0.3)';
               }
             }}
             onMouseLeave={(e) => {
               if (!loading) {
                 e.currentTarget.style.backgroundColor = '#ffffff';
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0,0,0,0.25)';
               }
             }}
           >
-            {/* Official Multi-Color Google G SVG */}
+            {/* Official Google G Logo */}
             <svg width="22" height="22" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
               <path
                 fill="#4285F4"
@@ -433,11 +398,7 @@ export default function LoginPage({ onLoginSuccess }) {
             <span>{loading ? 'Connecting to Google...' : 'Sign in with Google'}</span>
           </button>
 
-          <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginTop: '10px' }}>
-            Signing in as <b style={{ color: '#10b981' }}>{traderName.trim() || 'Pranavesh'}</b> • Cloud Sync Enabled
-          </span>
-
-          {/* Value Pillars List */}
+          {/* Value Pillars List (Public Broker Features) */}
           <div style={{
             marginTop: '32px',
             paddingTop: '24px',
@@ -449,23 +410,23 @@ export default function LoginPage({ onLoginSuccess }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: '#cbd5e1' }}>
               <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Database size={13} color="#10b981" />
+                <Zap size={13} color="#10b981" />
               </div>
-              <span><strong>Isolated Cloud Database:</strong> Your personal watchlist & trade history</span>
+              <span><strong>Zero-Risk Paper Trading:</strong> Practice with virtual capital and realistic execution</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: '#cbd5e1' }}>
               <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <BarChart3 size={13} color="#38bdf8" />
               </div>
-              <span><strong>Real Exchange Ticks:</strong> Live NSE & US market execution</span>
+              <span><strong>Real Market Feeds:</strong> Live NSE, BSE & US exchange price quotes</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: '#cbd5e1' }}>
               <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'rgba(168, 85, 247, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ShieldCheck size={13} color="#a855f7" />
+                <TrendingUp size={13} color="#a855f7" />
               </div>
-              <span><strong>Anti-Hijack Defense:</strong> Cryptographic device session isolation</span>
+              <span><strong>Advanced Charts:</strong> TradingView-grade minute candles, EMA & volume</span>
             </div>
           </div>
 

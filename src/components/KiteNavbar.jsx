@@ -434,7 +434,7 @@ export default function KiteNavbar({
             <Plus size={11} color="#10b981" />
           </div>
 
-          {/* User Account with Name and Cloud Sync Indicator */}
+          {/* User Account Profile Pill */}
           {currentUser ? (
             <div
               onClick={onOpenAuth}
@@ -443,42 +443,21 @@ export default function KiteNavbar({
                 alignItems: 'center',
                 gap: '8px',
                 padding: '4px 10px',
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(56, 189, 248, 0.08))',
-                border: '1px solid rgba(16, 185, 129, 0.35)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid #222f44',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title={`Logged in: ${currentUser.name} • Cloud Sync Active`}
+              title={`Account: ${currentUser.name}`}
             >
-              <div style={{ position: 'relative', width: '24px', height: '24px', flexShrink: 0 }}>
-                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '1.5px solid #10b981' }}>
-                  <img src={currentUser.picture} alt={currentUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-                {/* Cloud Sync Online Dot */}
-                <span 
-                  style={{
-                    position: 'absolute',
-                    bottom: '-1px',
-                    right: '-1px',
-                    width: '7px',
-                    height: '7px',
-                    borderRadius: '50%',
-                    background: '#10b981',
-                    border: '1.5px solid #0d131f'
-                  }}
-                  title="Cloud Sync Connected"
-                />
+              <div style={{ width: '24px', height: '24px', borderRadius: '50%', overflow: 'hidden', border: '1.5px solid #38bdf8', flexShrink: 0 }}>
+                <img src={currentUser.picture} alt={currentUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.1 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap' }}>
-                  {currentUser.name}
-                </span>
-                <span style={{ fontSize: '0.58rem', color: '#10b981', fontWeight: 600 }}>
-                  Cloud Sync Active
-                </span>
-              </div>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap' }}>
+                {currentUser.name}
+              </span>
             </div>
           ) : (
             <button

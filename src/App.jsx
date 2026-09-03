@@ -69,17 +69,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('ax_current_user');
-      if (saved) {
-        const u = JSON.parse(saved);
-        const preferred = localStorage.getItem('ax_trader_name') || 'Pranavesh';
-        if (u && (u.name === 'Apex Trader' || !u.name)) {
-          u.name = preferred;
-          u.picture = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(preferred)}&backgroundColor=10b981,0284c7&textColor=ffffff`;
-          localStorage.setItem('ax_current_user', JSON.stringify(u));
-        }
-        return u;
-      }
-      return null;
+      return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
@@ -91,11 +81,6 @@ export default function App() {
       .then(res => res.json())
       .then(res => {
         if (res.success && res.user) {
-          const preferred = localStorage.getItem('ax_trader_name') || 'Pranavesh';
-          if (res.user.name === 'Apex Trader' || !res.user.name) {
-            res.user.name = preferred;
-            res.user.picture = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(preferred)}&backgroundColor=10b981,0284c7&textColor=ffffff`;
-          }
           setCurrentUser(res.user);
           localStorage.setItem('ax_current_user', JSON.stringify(res.user));
         } else if (!localStorage.getItem('ax_current_user')) {
