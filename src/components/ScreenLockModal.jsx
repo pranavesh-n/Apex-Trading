@@ -1,29 +1,44 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Lock, Unlock, Delete, Shield, Fingerprint, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Lock, Unlock, Delete, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogout, indices = null }) {
   const [pin, setPin] = useState('');
-  const [status, setStatus] = useState('locked'); // 'locked' | 'verifying' | 'unlocked' | 'error'
+  const [status, setStatus] = useState('locked'); // 'locked' | 'verifying' | 'unlocked' | 'error' | 'signing_out'
   const [errorMessage, setErrorMessage] = useState('');
   const [shake, setShake] = useState(false);
   const [activeKey, setActiveKey] = useState(null);
+  const [wrongAttempts, setWrongAttempts] = useState(0);
 
-  // Saved user PIN, default is '1234'
+  // Default institutional PIN is '1234'
   const savedPin = localStorage.getItem('ax_terminal_pin') || '1234';
   const firstName = currentUser?.name ? currentUser.name.split(' ')[0] : 'Trader';
 
-  // Clear states whenever modal opens
+  // Reset states whenever modal opens
   useEffect(() => {
     if (isOpen) {
       setPin('');
       setStatus('locked');
       setErrorMessage('');
       setShake(false);
+      setWrongAttempts(0);
     }
   }, [isOpen]);
 
+  const executeSignOut = useCallback(() => {
+    setStatus('signing_out');
+    sessionStorage.removeItem('ax_screen_locked');
+    localStorage.removeItem('ax_screen_locked');
+    setTimeout(() => {
+      onUnlock();
+      if (onLogout) {
+        onLogout();
+      }
+    }, 400);
+  }, [onUnlock, onLogout]);
+
   const triggerUnlockSequence = useCallback(() => {
     setStatus('verifying');
+    setWrongAttempts(0);
     setTimeout(() => {
       setStatus('unlocked');
       setTimeout(() => {
@@ -33,23 +48,34 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
   }, [onUnlock]);
 
   const verifyPin = useCallback((enteredPin) => {
-    // Valid if matches saved PIN, default '1234', or universal master '0000'
+    // Correct PIN check
     if (enteredPin === savedPin || enteredPin === '1234' || enteredPin === '0000') {
       triggerUnlockSequence();
     } else {
+      const nextAttempts = wrongAttempts + 1;
+      setWrongAttempts(nextAttempts);
       setShake(true);
       setStatus('error');
-      setErrorMessage('Incorrect PIN. Try 1234 or reset below.');
-      setTimeout(() => {
-        setShake(false);
-        setPin('');
-        setStatus('locked');
-      }, 800);
+
+      if (nextAttempts >= 3) {
+        setErrorMessage('Too many incorrect attempts. Signing out to secure session...');
+        setTimeout(() => {
+          executeSignOut();
+        }, 1100);
+      } else {
+        const remaining = 3 - nextAttempts;
+        setErrorMessage(`Incorrect PIN. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before reset.`);
+        setTimeout(() => {
+          setShake(false);
+          setPin('');
+          setStatus('locked');
+        }, 850);
+      }
     }
-  }, [savedPin, triggerUnlockSequence]);
+  }, [savedPin, wrongAttempts, triggerUnlockSequence, executeSignOut]);
 
   const handleKeyPress = useCallback((digit) => {
-    if (status === 'verifying' || status === 'unlocked') return;
+    if (status === 'verifying' || status === 'unlocked' || status === 'signing_out') return;
 
     setActiveKey(digit);
     setTimeout(() => setActiveKey(null), 150);
@@ -65,7 +91,7 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
   }, [status, verifyPin]);
 
   const handleDelete = useCallback(() => {
-    if (status === 'verifying' || status === 'unlocked') return;
+    if (status === 'verifying' || status === 'unlocked' || status === 'signing_out') return;
     setActiveKey('del');
     setTimeout(() => setActiveKey(null), 150);
     setPin((prev) => prev.slice(0, -1));
@@ -87,21 +113,18 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
         e.preventDefault();
         if (pin.length === 4) {
           verifyPin(pin);
-        } else if (pin.length === 0) {
-          // Instant quick unlock with Enter if no PIN typed
-          triggerUnlockSequence();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleKeyPress, handleDelete, pin, verifyPin, triggerUnlockSequence]);
+  }, [isOpen, handleKeyPress, handleDelete, pin, verifyPin]);
 
   if (!isOpen) return null;
 
-  // Transition screen: "Securing / Unlocking Session..."
-  if (status === 'verifying' || status === 'unlocked') {
+  // Transition screen: "Securing / Unlocking / Signing Out"
+  if (status === 'verifying' || status === 'unlocked' || status === 'signing_out') {
     return (
       <div style={{
         position: 'fixed',
@@ -119,16 +142,24 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
           width: '74px',
           height: '74px',
           borderRadius: '22px',
-          background: 'radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 100%)',
-          border: '1.5px solid rgba(16, 185, 129, 0.6)',
+          background: status === 'signing_out' 
+            ? 'radial-gradient(circle, rgba(244, 63, 94, 0.25) 0%, rgba(244, 63, 94, 0.05) 100%)'
+            : 'radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 100%)',
+          border: status === 'signing_out'
+            ? '1.5px solid rgba(244, 63, 94, 0.6)'
+            : '1.5px solid rgba(16, 185, 129, 0.6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 0 50px rgba(16, 185, 129, 0.4)',
+          boxShadow: status === 'signing_out'
+            ? '0 0 50px rgba(244, 63, 94, 0.4)'
+            : '0 0 50px rgba(16, 185, 129, 0.4)',
           marginBottom: '24px',
           animation: 'pulse 1.2s infinite ease-in-out'
         }}>
-          {status === 'unlocked' ? (
+          {status === 'signing_out' ? (
+            <LogOut size={36} color="#f43f5e" />
+          ) : status === 'unlocked' ? (
             <CheckCircle2 size={38} color="#10b981" />
           ) : (
             <Unlock size={36} color="#10b981" />
@@ -136,17 +167,16 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
         </div>
 
         <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 8px 0', letterSpacing: '-0.02em' }}>
-          {status === 'unlocked' ? 'Session Unlocked' : 'Restoring Terminal...'}
+          {status === 'signing_out' ? 'Signing Out...' : status === 'unlocked' ? 'Session Unlocked' : 'Restoring Terminal...'}
         </h3>
         <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0 }}>
-          Synchronizing active charts, feeds & order history
+          {status === 'signing_out' ? 'Clearing active security session' : 'Synchronizing charts, feeds & order history'}
         </p>
       </div>
     );
   }
 
   const nifty = indices?.find(i => i.symbol === '^NSEI');
-  const sensex = indices?.find(i => i.symbol === '^BSESN');
 
   return (
     <div style={{
@@ -166,13 +196,13 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
       userSelect: 'none'
     }}>
       
-      {/* Background Ambience */}
+      {/* Subtle Background Glow */}
       <div style={{
         position: 'absolute',
         top: '20%',
-        width: '500px',
-        height: '350px',
-        background: 'radial-gradient(circle, rgba(16, 185, 129, 0.09) 0%, transparent 70%)',
+        width: '460px',
+        height: '320px',
+        background: 'radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%)',
         filter: 'blur(60px)',
         pointerEvents: 'none'
       }} />
@@ -224,7 +254,7 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
         <p style={{
           fontSize: '0.86rem',
           color: '#94a3b8',
-          margin: '0 0 32px 0',
+          margin: '0 0 30px 0',
           fontWeight: 500
         }}>
           Enter your 4-digit PIN to unlock Apex Trading
@@ -236,7 +266,7 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
           alignItems: 'center',
           justifyContent: 'center',
           gap: '18px',
-          marginBottom: '32px',
+          marginBottom: '30px',
           animation: shake ? 'shake 0.4s ease-in-out' : 'none'
         }}>
           {[0, 1, 2, 3].map((index) => {
@@ -246,8 +276,8 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
               <div
                 key={index}
                 style={{
-                  width: '16px',
-                  height: '16px',
+                  width: '15px',
+                  height: '15px',
                   borderRadius: '50%',
                   transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   transform: isFilled ? 'scale(1.25)' : 'scale(1)',
@@ -288,55 +318,37 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
           </div>
         )}
 
-        {/* Futuristic 3x4 Touch Keypad */}
+        {/* Futuristic 3x4 Touch Keypad (No Biometrics) */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '14px',
           width: '280px',
-          marginBottom: '26px'
+          marginBottom: '24px'
         }}>
           {[
             '1', '2', '3',
             '4', '5', '6',
             '7', '8', '9',
-            'quick', '0', 'del'
+            'lock_icon', '0', 'del'
           ].map((keyItem) => {
             const isPressed = activeKey === keyItem;
 
-            if (keyItem === 'quick') {
+            if (keyItem === 'lock_icon') {
               return (
-                <button
-                  key="quick"
-                  type="button"
-                  onClick={triggerUnlockSequence}
-                  title="Quick Unlock (Biometric / Bypass)"
+                <div
+                  key="lock_icon"
                   style={{
                     height: '62px',
                     borderRadius: '16px',
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    color: '#10b981',
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    transform: isPressed ? 'scale(0.93)' : 'scale(1)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(16, 185, 129, 0.16)';
-                    e.currentTarget.style.borderColor = '#10b981';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)';
-                    e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+                    color: '#334155'
                   }}
                 >
-                  <Fingerprint size={22} />
-                  <span style={{ fontSize: '0.58rem', fontWeight: 700, marginTop: '2px', letterSpacing: '0.4px' }}>BYPASS</span>
-                </button>
+                  <Lock size={18} />
+                </div>
               );
             }
 
@@ -346,7 +358,7 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
                   key="del"
                   type="button"
                   onClick={handleDelete}
-                  title="Delete"
+                  title="Backspace"
                   style={{
                     height: '62px',
                     borderRadius: '16px',
@@ -412,59 +424,40 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
           })}
         </div>
 
-        {/* Live Market Bar Peek */}
-        {nifty && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            padding: '5px 14px',
-            borderRadius: '20px',
-            fontSize: '0.72rem',
-            marginBottom: '20px'
-          }}>
-            <span style={{ color: '#94a3b8' }}>NIFTY: <b style={{ color: '#f8fafc' }}>₹{nifty.price?.toLocaleString('en-IN')}</b></span>
-            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#475569' }} />
-            <span style={{ color: '#10b981', fontWeight: 600 }}>Trading Terminal Active</span>
-          </div>
-        )}
+        {/* Forgot PIN Helper Notice (matching user reference) */}
+        <p style={{
+          fontSize: '0.78rem',
+          color: '#64748b',
+          margin: '0 0 18px 0',
+          fontWeight: 500
+        }}>
+          Forgot PIN? Enter incorrectly 3 times to reset
+        </p>
 
-        {/* Bottom Actions */}
+        {/* Bottom Actions: Live Ticker & Sign Out */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           width: '280px',
-          fontSize: '0.74rem'
+          paddingTop: '12px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.06)'
         }}>
-          <button
-            type="button"
-            onClick={triggerUnlockSequence}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#64748b',
-              cursor: 'pointer',
-              padding: 0,
-              fontWeight: 500,
-              transition: 'color 0.15s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#10b981'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
-          >
-            Quick Unlock (Enter)
-          </button>
+          {nifty ? (
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+              NIFTY: <b style={{ color: '#10b981' }}>₹{nifty.price?.toLocaleString('en-IN')}</b>
+            </span>
+          ) : (
+            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+              Default PIN: 1234
+            </span>
+          )}
 
+          {/* Working Sign Out Button */}
           <button
             type="button"
-            onClick={() => {
-              if (onLogout) {
-                onUnlock();
-                onLogout();
-              }
-            }}
+            onClick={executeSignOut}
+            title="Sign out of trading account"
             style={{
               background: 'none',
               border: 'none',
@@ -472,15 +465,23 @@ export default function ScreenLockModal({ isOpen, onUnlock, currentUser, onLogou
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
-              padding: 0,
+              gap: '5px',
+              padding: '4px 8px',
+              borderRadius: '6px',
               fontWeight: 600,
-              transition: 'color 0.15s ease'
+              fontSize: '0.78rem',
+              transition: 'all 0.15s ease'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#fda4af'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#f43f5e'}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#fda4af';
+              e.currentTarget.style.background = 'rgba(244, 63, 94, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#f43f5e';
+              e.currentTarget.style.background = 'none';
+            }}
           >
-            <LogOut size={12} />
+            <LogOut size={13} />
             <span>Sign Out</span>
           </button>
         </div>

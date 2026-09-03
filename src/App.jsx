@@ -104,8 +104,10 @@ export default function App() {
     } catch {}
     localStorage.removeItem('ax_current_user');
     localStorage.removeItem('ax_auth_token');
+    sessionStorage.removeItem('ax_screen_locked');
     setCurrentUser(null);
     setIsAuthOpen(false);
+    setIsScreenLocked(false);
   };
 
   // Terminal Screen Lock State
