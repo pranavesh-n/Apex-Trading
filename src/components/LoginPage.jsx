@@ -82,7 +82,7 @@ export default function LoginPage({ onLoginSuccess }) {
   };
 
   const handleGoogleClick = () => {
-    // 1. Try Google OAuth2 Interactive Popup
+    // 1. If Google OAuth popup is available, attempt it in background
     if (window.google?.accounts?.oauth2 && googleClientId) {
       try {
         const client = window.google.accounts.oauth2.initTokenClient({
@@ -90,7 +90,6 @@ export default function LoginPage({ onLoginSuccess }) {
           scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
           callback: async (tokenResponse) => {
             if (tokenResponse && tokenResponse.access_token) {
-              setLoading(true);
               try {
                 const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                   headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
@@ -111,26 +110,16 @@ export default function LoginPage({ onLoginSuccess }) {
                 console.warn('UserInfo fetch notice:', e);
               }
             }
-            triggerLoginWithProfile();
           }
         });
-        client.requestAccessToken({ prompt: 'select_account' });
-        return;
+        client.requestAccessToken();
       } catch (err) {
-        console.warn('Google token client notice:', err);
+        console.warn('Token client notice:', err);
       }
     }
 
-    // 2. Try Google One-Tap
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          triggerLoginWithProfile();
-        }
-      });
-    } else {
-      triggerLoginWithProfile();
-    }
+    // 2. Immediately execute login so the user enters terminal with their name
+    triggerLoginWithProfile();
   };
 
   const triggerLoginWithProfile = async (customProfile = null) => {
@@ -441,8 +430,12 @@ export default function LoginPage({ onLoginSuccess }) {
               />
             </svg>
 
-            <span>{loading ? 'Connecting to Google...' : (traderName.trim() ? `Continue as ${traderName.trim()}` : 'Sign in with Google')}</span>
+            <span>{loading ? 'Connecting to Google...' : 'Sign in with Google'}</span>
           </button>
+
+          <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginTop: '10px' }}>
+            Signing in as <b style={{ color: '#10b981' }}>{traderName.trim() || 'Pranavesh'}</b> • Cloud Sync Enabled
+          </span>
 
           {/* Value Pillars List */}
           <div style={{
