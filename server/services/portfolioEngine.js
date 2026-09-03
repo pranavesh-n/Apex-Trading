@@ -81,48 +81,61 @@ function savePortfolio() {
 }
 
 /**
- * Calculate Indian brokerage and statutory charges (Zerodha / Groww style standard equity charges)
+ * Calculate Groww official brokerage and statutory charges (Groww Equity Pricing)
+ * - Equity Delivery (CNC): ₹20 or 0.05% per executed order (whichever is lower)
+ * - Equity Intraday (MIS): ₹20 or 0.05% per executed order (whichever is lower)
+ * - DP Charges: ₹13.50 + 18% GST (₹15.93) per company on sell side (CNC)
+ * - STT: 0.1% on Buy & Sell for CNC; 0.025% on Sell for MIS
+ * - Exchange Turnover Charges: 0.00297% (NSE)
+ * - SEBI Turnover Charges: ₹10 / Crore (0.0001%)
+ * - Stamp Duty: 0.015% on Buy for CNC; 0.003% on Buy for MIS
+ * - GST: 18% on (Brokerage + Exchange Turnover + SEBI Charges)
  */
 export function calculateCharges(product, action, price, qty) {
   if (!state.settings.enableCharges) {
-    return { brokerage: 0, stt: 0, exchangeTurnover: 0, gst: 0, sebiCharges: 0, stampDuty: 0, total: 0 };
+    return { brokerage: 0, stt: 0, exchangeTurnover: 0, gst: 0, sebiCharges: 0, stampDuty: 0, dpCharges: 0, total: 0 };
   }
 
   const turnover = price * qty;
-  let brokerage = 0;
+  
+  // Groww Brokerage: ₹20 or 0.05% of trade value (whichever is lower) for both CNC and MIS
+  const brokerage = +Math.min(20, turnover * 0.0005).toFixed(2);
+  
   let stt = 0;
   let stampDuty = 0;
+  let dpCharges = 0;
 
   if (product === 'CNC') {
-    // Delivery: Zero brokerage, STT 0.1% on buy & sell
-    brokerage = 0;
-    stt = Math.round(turnover * 0.001); // 0.1%
+    // Delivery: STT 0.1% on buy & sell
+    stt = Math.round(turnover * 0.001);
     if (action === 'BUY') {
       stampDuty = Math.round(turnover * 0.00015); // 0.015%
+    } else {
+      dpCharges = 15.93; // Groww DP Charge: ₹13.50 + 18% GST per company debit
     }
   } else {
-    // MIS Intraday: ₹20 or 0.03% (whichever is lower)
-    brokerage = Math.min(20, turnover * 0.0003);
+    // Intraday (MIS): STT 0.025% on sell side only
     if (action === 'SELL') {
-      stt = Math.round(turnover * 0.00025); // 0.025% on sell side
+      stt = Math.round(turnover * 0.00025);
     }
     if (action === 'BUY') {
       stampDuty = Math.round(turnover * 0.00003); // 0.003%
     }
   }
 
-  const exchangeTurnover = turnover * 0.0000345; // NSE 0.00345%
-  const sebiCharges = turnover * 0.000001; // ₹10 per crore
-  const gst = (brokerage + exchangeTurnover + sebiCharges) * 0.18; // 18% GST
-  const total = +(brokerage + stt + exchangeTurnover + gst + sebiCharges + stampDuty).toFixed(2);
+  const exchangeTurnover = +(turnover * 0.0000297).toFixed(2); // NSE 0.00297%
+  const sebiCharges = +(turnover * 0.000001).toFixed(2); // ₹10 per crore
+  const gst = +((brokerage + exchangeTurnover + sebiCharges) * 0.18).toFixed(2); // 18% GST
+  const total = +(brokerage + stt + exchangeTurnover + gst + sebiCharges + stampDuty + dpCharges).toFixed(2);
 
   return {
-    brokerage: +brokerage.toFixed(2),
-    stt: +stt.toFixed(2),
-    exchangeTurnover: +exchangeTurnover.toFixed(2),
-    gst: +gst.toFixed(2),
-    sebiCharges: +sebiCharges.toFixed(2),
-    stampDuty: +stampDuty.toFixed(2),
+    brokerage,
+    stt,
+    exchangeTurnover,
+    gst,
+    sebiCharges,
+    stampDuty,
+    dpCharges,
     total
   };
 }
