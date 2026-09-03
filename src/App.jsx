@@ -21,6 +21,7 @@ import InitialFundsModal from './components/InitialFundsModal';
 import TipsModal from './components/TipsModal';
 import MobileMenuDrawer from './components/MobileMenuDrawer';
 import GoogleAuthModal from './components/GoogleAuthModal';
+import LoginPage from './components/LoginPage';
 import { isAnyMarketOpen, shouldPollSymbol } from './utils/marketHours';
 
 // Responsive hook: true when viewport is mobile/tablet width
@@ -38,7 +39,7 @@ export default function App() {
   const [activeSymbol, setActiveSymbol] = useState(null);
   const [currentQuote, setCurrentQuote] = useState(null);
   const [indices, setIndices] = useState([]);
-  const [timeframe, setTimeframe] = useState({ label: '1M', range: '1mo', interval: '1d' });
+  const [timeframe, setTimeframe] = useState({ label: '5m', range: '5d', interval: '5m', title: '5 Minutes' });
   const [candles, setCandles] = useState([]);
   const [loadingChart, setLoadingChart] = useState(false);
   const [portfolio, setPortfolio] = useState(null);
@@ -65,24 +66,46 @@ export default function App() {
   const [isTipsOpen, setIsTipsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-
-  // Restore session on mount
-  useEffect(() => {
-    const token = localStorage.getItem('ax_auth_token');
-    if (token) {
-      fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then(res => res.json())
-        .then(res => {
-          if (res.success && res.user) {
-            setCurrentUser(res.user);
-          }
-        })
-        .catch(() => {});
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ax_current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
     }
+  });
+
+  // Verify session on mount
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(res => {
+        if (res.success && res.user) {
+          setCurrentUser(res.user);
+          localStorage.setItem('ax_current_user', JSON.stringify(res.user));
+        } else if (!localStorage.getItem('ax_current_user')) {
+          setCurrentUser(null);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    try {
+      localStorage.setItem('ax_current_user', JSON.stringify(user));
+    } catch {}
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {}
+    localStorage.removeItem('ax_current_user');
+    localStorage.removeItem('ax_auth_token');
+    setCurrentUser(null);
+    setIsAuthOpen(false);
+  };
   const [orderModalConfig, setOrderModalConfig] = useState({
     isOpen: false,
     quote: null,
@@ -322,6 +345,11 @@ export default function App() {
   };
 
   const isInWatchlist = activeSymbol && portfolio?.watchlists?.[0]?.symbols?.includes(activeSymbol);
+
+  // MANDATORY AUTH GATE: No user enters the terminal without logging in
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#090d16' }}>
@@ -650,14 +678,8 @@ export default function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         currentUser={currentUser}
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          fetchPortfolio();
-        }}
-        onLogout={() => {
-          setCurrentUser(null);
-          fetchPortfolio();
-        }}
+        onLoginSuccess={handleLoginSuccess}
+        onLogout={handleLogout}
       />
     </div>
   );

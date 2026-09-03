@@ -54,9 +54,9 @@ export async function queryD1(sql, params = []) {
 }
 
 /**
- * Sync in-memory state to Cloudflare D1
+ * Sync in-memory state to Cloudflare D1 for a specific user space
  */
-export async function syncStateToD1(state) {
+export async function syncStateToD1(state, userId = 'default') {
   if (!isD1Configured()) return false;
 
   try {
@@ -69,37 +69,38 @@ export async function syncStateToD1(state) {
          cash_balance = excluded.cash_balance,
          realized_pnl = excluded.realized_pnl,
          updated_at = CURRENT_TIMESTAMP`,
-      ['default', state.initialCapital || 0, state.cashBalance || 0, state.realizedPnl || 0]
+      [userId, state.initialCapital || 0, state.cashBalance || 0, state.realizedPnl || 0]
     );
 
-    // 2. Sync Watchlists
+    // 2. Sync Watchlists for this specific user
     for (const wl of (state.watchlists || [])) {
+      const scopedId = `${userId}_${wl.id}`;
       await queryD1(
         `INSERT INTO watchlists (id, name, symbols) 
          VALUES (?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET 
            name = excluded.name,
            symbols = excluded.symbols`,
-        [wl.id, wl.name, JSON.stringify(wl.symbols || [])]
+        [scopedId, wl.name, JSON.stringify(wl.symbols || [])]
       );
     }
 
     return true;
   } catch (err) {
-    console.error('Failed to sync state to D1:', err.message);
+    console.error(`Failed to sync user ${userId} state to D1:`, err.message);
     return false;
   }
 }
 
 /**
- * Load portfolio state from Cloudflare D1
+ * Load portfolio state from Cloudflare D1 for a specific user
  */
-export async function loadStateFromD1() {
+export async function loadStateFromD1(userId = 'default') {
   if (!isD1Configured()) return null;
 
   try {
-    const portfolioRows = await queryD1('SELECT * FROM portfolio WHERE id = ?', ['default']);
-    const watchlistRows = await queryD1('SELECT * FROM watchlists');
+    const portfolioRows = await queryD1('SELECT * FROM portfolio WHERE id = ?', [userId]);
+    const watchlistRows = await queryD1('SELECT * FROM watchlists WHERE id LIKE ?', [`${userId}_%`]);
     const orderRows = await queryD1('SELECT * FROM orders ORDER BY timestamp DESC');
     const positionRows = await queryD1('SELECT * FROM positions');
     const holdingRows = await queryD1('SELECT * FROM holdings');
@@ -111,7 +112,8 @@ export async function loadStateFromD1() {
     const watchlists = (watchlistRows || []).map(r => {
       let symbols = [];
       try { symbols = JSON.parse(r.symbols); } catch { symbols = []; }
-      return { id: r.id, name: r.name, symbols };
+      const cleanId = r.id.replace(`${userId}_`, '');
+      return { id: cleanId, name: r.name, symbols };
     });
 
     return {

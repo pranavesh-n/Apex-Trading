@@ -32,6 +32,15 @@ export default function OrderTicket({
   const existingHolding = portfolio?.holdings?.find(h => h.symbol === quote?.symbol);
   const existingQty = existingHolding?.qty || 0;
 
+  // Reset price inputs when user switches to a different stock
+  useEffect(() => {
+    setLimitPrice('');
+    setStopLoss('');
+    setTarget('');
+    setError(null);
+    setSuccessMsg(null);
+  }, [quote?.symbol]);
+
   useEffect(() => {
     if (orderType === 'LIMIT' && !limitPrice && ltp) {
       setLimitPrice(ltp.toString());

@@ -58,12 +58,14 @@ export default function TradingChart({
   const [hoverData, setHoverData] = useState(null);
 
   const timeframes = [
-    { label: '1D', range: '1d', interval: '5m' },
-    { label: '5D', range: '5d', interval: '15m' },
-    { label: '1M', range: '1mo', interval: '1d' },
-    { label: '6M', range: '6mo', interval: '1d' },
-    { label: '1Y', range: '1y', interval: '1d' },
-    { label: '5Y', range: '5y', interval: '1wk' }
+    { label: '1m', range: '1d', interval: '1m', title: '1 Minute' },
+    { label: '5m', range: '5d', interval: '5m', title: '5 Minutes' },
+    { label: '15m', range: '5d', interval: '15m', title: '15 Minutes' },
+    { label: '30m', range: '1mo', interval: '30m', title: '30 Minutes' },
+    { label: '1h', range: '1mo', interval: '60m', title: '1 Hour' },
+    { label: '1D', range: '1y', interval: '1d', title: '1 Day' },
+    { label: '1W', range: '5y', interval: '1wk', title: '1 Week' },
+    { label: '1M', range: 'max', interval: '1mo', title: '1 Month' }
   ];
 
   useEffect(() => {
