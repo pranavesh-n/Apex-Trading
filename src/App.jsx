@@ -728,6 +728,7 @@ export default function App() {
         onUnlock={handleUnlockScreen}
         currentUser={currentUser}
         onLogout={handleLogout}
+        indices={indices}
       />
     </div>
   );
