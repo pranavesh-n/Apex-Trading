@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Apex Trading • Real-Time Paper Trading & Market Terminal</title>
+    <meta name="description" content="Professional virtual paper trading terminal for Indian Equities, Global Stocks, and Benchmark Indices with 100% real live market data." />
+
+    <!-- Universal Mobile Web App Settings -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#070a11" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Apex Trading" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="/logo.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(err => {
+            console.log('SW registration error:', err);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

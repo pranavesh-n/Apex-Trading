@@ -1,0 +1,531 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  BarChart3, 
+  LayoutDashboard, 
+  ListOrdered, 
+  Briefcase, 
+  Layers, 
+  CreditCard, 
+  BookOpen, 
+  GraduationCap, 
+  List, 
+  Lightbulb, 
+  Plus, 
+  Smartphone, 
+  Search,
+  Menu
+} from 'lucide-react';
+import { formatCurrency, formatPercent, isIndianMarketOpen } from '../utils/formatters';
+import { getIndianMarketStatus, getUSMarketStatus } from '../utils/marketHours';
+
+export default function KiteNavbar({ 
+  portfolio, 
+  indices, 
+  activeTab, 
+  setActiveTab, 
+  onOpenSearch, 
+  onOpenFunds,
+  onSelectStock,
+  isMobile = false,
+  beginnerMode = false,
+  onOpenTips,
+  onOpenMobileMenu,
+  onToggleWatchlist,
+  currentUser = null,
+  onOpenAuth
+}) {
+  const isMarketOpen = isIndianMarketOpen();
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert('To install Apex Trading on your device:\n\nTap the install icon in your address bar or browser menu -> "Install App" / "Add to Home Screen".');
+    }
+  };
+
+  const [marketStatus, setMarketStatus] = useState(() => ({
+    indian: getIndianMarketStatus(),
+    us: getUSMarketStatus()
+  }));
+
+  useEffect(() => {
+    const updateMarket = () => {
+      setMarketStatus({
+        indian: getIndianMarketStatus(),
+        us: getUSMarketStatus()
+      });
+    };
+    const timer = setInterval(updateMarket, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const nifty = indices?.find(i => i.symbol === '^NSEI');
+  const sensex = indices?.find(i => i.symbol === '^BSESN');
+  const cashBalance = portfolio?.cashBalance || 0;
+
+  const handleIndexClick = (symbol) => {
+    if (onSelectStock) {
+      onSelectStock(symbol);
+    }
+    if (activeTab !== 'terminal') {
+      setActiveTab('terminal');
+    }
+  };
+
+  return (
+    <header style={{ 
+      background: '#0d131f', 
+      borderBottom: '1px solid #1f2a3d', 
+      position: 'sticky', 
+      top: 0, 
+      zIndex: 100,
+      userSelect: 'none'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        padding: '0 14px', 
+        height: '56px',
+        gap: '8px'
+      }}>
+        
+        {/* 1. LEFT: Brand Logo & Interactive Indices */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          {/* Logo & Brand */}
+          <div 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            onClick={() => setActiveTab('terminal')}
+            title="Apex Trading Terminal"
+          >
+            <div style={{ 
+              width: '32px', 
+              height: '32px', 
+              borderRadius: '8px', 
+              overflow: 'hidden',
+              boxShadow: '0 0 12px rgba(16, 185, 129, 0.4)',
+              border: '1px solid rgba(16, 185, 129, 0.45)',
+              background: '#060911',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <img 
+                src="/logo.png" 
+                alt="Apex Trading Logo" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ fontWeight: 900, fontSize: '1.05rem', color: '#fff', letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>
+                APEX<span style={{ color: '#10b981', fontSize: '0.82rem', fontWeight: 800, marginLeft: '3px' }}>TRADING</span>
+              </span>
+
+              {/* Dynamic Market Status Badge (NSE/BSE 9:15 AM - 3:30 PM IST) */}
+              <span 
+                title={marketStatus.indian.tooltip}
+                style={{ 
+                  fontSize: '0.55rem', 
+                  background: marketStatus.indian.bg, 
+                  color: marketStatus.indian.color, 
+                  border: `1px solid ${marketStatus.indian.borderColor}`,
+                  padding: '1px 5px', 
+                  borderRadius: '3px', 
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                {marketStatus.indian.isOpen ? (
+                  <>
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                    LIVE
+                  </>
+                ) : (
+                  <>
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
+                    CLOSED
+                  </>
+                )}
+              </span>
+
+              {/* US Market Status (Open from 7:00 PM / 8:00 PM IST) */}
+              {marketStatus.us.isOpen && (
+                <span 
+                  title={marketStatus.us.tooltip}
+                  className="hide-mobile"
+                  style={{ 
+                    fontSize: '0.52rem', 
+                    background: 'rgba(16, 185, 129, 0.15)', 
+                    color: '#10b981', 
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    padding: '1px 4px', 
+                    borderRadius: '3px', 
+                    fontWeight: 700 
+                  }}
+                >
+                  US LIVE
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="hide-mobile" style={{ height: '20px', width: '1px', background: '#1e293b' }} />
+
+          {/* Desktop Indices Pills */}
+          <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {nifty && (
+              <div 
+                onClick={() => handleIndexClick(nifty.symbol)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: '5px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid #1c2738',
+                  padding: '3px 8px',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+                title="Click to chart NIFTY 50"
+              >
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8' }}>NIFTY</span>
+                <span className="font-mono" style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f1f5f9' }}>
+                  {formatCurrency(nifty.price, nifty.currency)}
+                </span>
+                <span className={`font-mono ${nifty.change >= 0 ? 'profit-text' : 'loss-text'}`} style={{ fontSize: '0.68rem', fontWeight: 600 }}>
+                  ({formatPercent(nifty.changePercent)})
+                </span>
+              </div>
+            )}
+
+            {sensex && (
+              <div 
+                onClick={() => handleIndexClick(sensex.symbol)}
+                className="hide-under-1200"
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: '5px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid #1c2738',
+                  padding: '3px 8px',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+                title="Click to chart SENSEX"
+              >
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8' }}>SENSEX</span>
+                <span className="font-mono" style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f1f5f9' }}>
+                  {formatCurrency(sensex.price, sensex.currency)}
+                </span>
+                <span className={`font-mono ${sensex.change >= 0 ? 'profit-text' : 'loss-text'}`} style={{ fontSize: '0.68rem', fontWeight: 600 }}>
+                  ({formatPercent(sensex.changePercent)})
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 2. CENTER: All 8 Navigation Tabs on Desktop */}
+        <div 
+          className="hide-mobile nav-tabs-scroll" 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '2px', 
+            overflowX: 'auto', 
+            flexShrink: 1,
+            minWidth: 0
+          }}
+        >
+          <button
+            className={`nav-tab ${activeTab === 'terminal' ? 'active' : ''}`}
+            onClick={() => setActiveTab('terminal')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <BarChart3 size={13} />
+            <span>Terminal</span>
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <LayoutDashboard size={13} />
+            <span>Dashboard</span>
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => setActiveTab('orders')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <ListOrdered size={13} />
+            <span>Orders</span>
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'holdings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('holdings')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <Briefcase size={13} />
+            <span>Holdings</span>
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'positions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('positions')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <Layers size={13} />
+            <span>Positions</span>
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'funds' ? 'active' : ''}`}
+            onClick={() => setActiveTab('funds')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <CreditCard size={13} />
+            <span>Funds</span>
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'journal' ? 'active' : ''}`}
+            onClick={() => setActiveTab('journal')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <BookOpen size={13} />
+            <span>Journal</span>
+          </button>
+
+          <button
+            className={`nav-tab ${activeTab === 'learn' ? 'active' : ''}`}
+            onClick={() => setActiveTab('learn')}
+            style={{ fontSize: '0.78rem', padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}
+          >
+            <GraduationCap size={13} />
+            <span>Learn</span>
+          </button>
+        </div>
+
+        {/* 3. RIGHT: Search, Tips, PWA, Margin & Mobile Menu Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {/* Universal Search Button */}
+          <button
+            onClick={onOpenSearch}
+            className="btn-ghost"
+            style={{ 
+              padding: '5px 8px', 
+              fontSize: '0.75rem', 
+              background: '#0e1420', 
+              borderColor: '#222f44', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '5px' 
+            }}
+            title="Search Any Stock or Index"
+          >
+            <Search size={13} color="#38bdf8" />
+            <span className="hide-mobile" style={{ color: '#cbd5e1' }}>Search</span>
+            <span className="hide-mobile" style={{ fontSize: '0.62rem', background: '#1e293b', padding: '1px 3px', borderRadius: '3px', color: '#94a3b8' }}>/</span>
+          </button>
+
+          {/* Interactive Trading Tips Button */}
+          <button
+            onClick={onOpenTips}
+            style={{
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              color: '#f59e0b',
+              padding: '5px 8px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              whiteSpace: 'nowrap'
+            }}
+            title="Beginner Trading Guide & Quick Tips"
+          >
+            <Lightbulb size={13} />
+            <span className="hide-mobile">Tips</span>
+          </button>
+
+          {/* Install App Button */}
+          {!isInstalled && (
+            <button
+              onClick={handleInstallClick}
+              className="hide-mobile"
+              style={{
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15))',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                color: '#10b981',
+                padding: '5px 8px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                whiteSpace: 'nowrap'
+              }}
+              title="Install App on Device"
+            >
+              <Smartphone size={12} />
+              <span>App</span>
+            </button>
+          )}
+
+          {/* Margin Badge (Clean, Always in View) */}
+          <div 
+            onClick={onOpenFunds}
+            style={{ 
+              cursor: 'pointer', 
+              background: '#0d131f', 
+              border: '1px solid #222f44', 
+              borderRadius: '6px', 
+              padding: '4px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+            title="Available Trading Margin"
+          >
+            <div>
+              <div style={{ fontSize: '0.55rem', color: '#64748b', textTransform: 'uppercase', lineHeight: 1 }}>Margin</div>
+              <div className="font-mono" style={{ fontSize: '0.78rem', fontWeight: 800, color: '#10b981' }}>
+                ₹{cashBalance.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </div>
+            </div>
+            <Plus size={11} color="#10b981" />
+          </div>
+
+          {/* User Account / Sign In Button */}
+          {currentUser ? (
+            <div
+              onClick={onOpenAuth}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 7px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid #222f44',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+              title={`Logged in as ${currentUser.name}`}
+            >
+              <div style={{ width: '22px', height: '22px', borderRadius: '50%', overflow: 'hidden', border: '1px solid #10b981' }}>
+                <img src={currentUser.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <span className="hide-mobile" style={{ fontSize: '0.72rem', fontWeight: 700, color: '#e2e8f0', maxWidth: '75px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentUser.name?.split(' ')[0]}
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid #233047',
+                color: '#f1f5f9',
+                padding: '5px 8px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '0.72rem',
+                fontWeight: 700
+              }}
+              title="Sign in to your account"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+              </svg>
+              <span className="hide-mobile">Sign in</span>
+            </button>
+          )}
+
+          {/* Mobile Watchlist Drawer Button */}
+          <button
+            className="show-mobile"
+            onClick={onToggleWatchlist}
+            style={{
+              background: '#0e1420', 
+              border: '1px solid #222f44', 
+              color: '#38bdf8',
+              padding: '6px 8px', 
+              borderRadius: '6px', 
+              cursor: 'pointer',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center'
+            }}
+            title="Open Watchlist"
+          >
+            <List size={16} />
+          </button>
+
+          {/* Mobile All Features Menu (Hamburger) */}
+          <button
+            className="show-mobile"
+            onClick={onOpenMobileMenu}
+            style={{
+              background: '#0e1420',
+              border: '1px solid #222f44',
+              color: '#10b981',
+              padding: '6px 8px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Open All Features Menu"
+          >
+            <Menu size={16} />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
