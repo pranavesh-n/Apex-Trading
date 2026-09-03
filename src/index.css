@@ -277,6 +277,12 @@ button, input, select, textarea {
 }
 
 @media (max-width: 900px) {
+  .hide-mobile {
+    display: none !important;
+  }
+  .show-mobile {
+    display: flex !important;
+  }
   .mobile-bottom-nav {
     display: grid !important;
   }

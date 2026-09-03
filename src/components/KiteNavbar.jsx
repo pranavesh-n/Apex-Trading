@@ -363,9 +363,10 @@ export default function KiteNavbar({
             <span className="hide-mobile" style={{ fontSize: '0.62rem', background: '#1e293b', padding: '1px 3px', borderRadius: '3px', color: '#94a3b8' }}>/</span>
           </button>
 
-          {/* Interactive Trading Tips Button */}
+          {/* Interactive Trading Tips Button (Desktop Only) */}
           <button
             onClick={onOpenTips}
+            className="hide-mobile"
             style={{
               background: 'rgba(245, 158, 11, 0.12)',
               border: '1px solid rgba(245, 158, 11, 0.4)',
@@ -383,10 +384,10 @@ export default function KiteNavbar({
             title="Beginner Trading Guide & Quick Tips"
           >
             <Lightbulb size={13} />
-            <span className="hide-mobile">Tips</span>
+            <span>Tips</span>
           </button>
 
-          {/* Install App Button */}
+          {/* Install App Button (Desktop Only) */}
           {!isInstalled && (
             <button
               onClick={handleInstallClick}
@@ -412,9 +413,10 @@ export default function KiteNavbar({
             </button>
           )}
 
-          {/* Margin Badge (Clean, Always in View) */}
+          {/* Margin Badge (Desktop Only - Mobile has it in Funds tab) */}
           <div 
             onClick={onOpenFunds}
+            className="hide-mobile"
             style={{ 
               cursor: 'pointer', 
               background: '#0d131f', 
@@ -436,7 +438,7 @@ export default function KiteNavbar({
             <Plus size={11} color="#10b981" />
           </div>
 
-          {/* Quick Screen Lock Button */}
+          {/* Quick Screen Lock Button (Compact on mobile) */}
           {currentUser && (
             <button
               type="button"
@@ -444,8 +446,8 @@ export default function KiteNavbar({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                padding: '5px 9px',
+                gap: '4px',
+                padding: '6px 9px',
                 background: 'rgba(255, 255, 255, 0.04)',
                 border: '1px solid #1e293b',
                 borderRadius: '8px',
@@ -453,7 +455,8 @@ export default function KiteNavbar({
                 fontSize: '0.74rem',
                 fontWeight: 600,
                 cursor: 'pointer',
-                transition: 'all 0.15s ease'
+                transition: 'all 0.15s ease',
+                flexShrink: 0
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = '#f8fafc';
@@ -467,12 +470,12 @@ export default function KiteNavbar({
               }}
               title="Lock Terminal Screen (Ctrl+L)"
             >
-              <Lock size={12} color="#10b981" />
-              <span>Lock</span>
+              <Lock size={13} color="#10b981" />
+              <span className="hide-mobile">Lock</span>
             </button>
           )}
 
-          {/* User Account Profile Pill */}
+          {/* User Account Profile Pill (Compact avatar on mobile) */}
           {currentUser ? (
             <div
               onClick={onOpenAuth}
@@ -480,12 +483,13 @@ export default function KiteNavbar({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '4px 10px',
+                padding: '4px 8px',
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid #222f44',
                 borderRadius: '8px',
                 cursor: 'pointer',
-                transition: 'all 0.15s ease'
+                transition: 'all 0.15s ease',
+                flexShrink: 0
               }}
               title={`Account: ${currentUser.name}`}
             >
@@ -493,7 +497,7 @@ export default function KiteNavbar({
                 <img src={currentUser.picture} alt={currentUser.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
 
-              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap' }}>
+              <span className="hide-mobile" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap' }}>
                 {currentUser.name}
               </span>
             </div>

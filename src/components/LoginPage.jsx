@@ -33,21 +33,6 @@ export default function LoginPage({ onLoginSuccess }) {
             auto_select: false,
             cancel_on_tap_outside: true
           });
-
-          // Render official Google button if container exists
-          const container = document.getElementById('google-btn-container');
-          if (container) {
-            container.innerHTML = '';
-            window.google.accounts.id.renderButton(container, {
-              theme: 'outline',
-              size: 'large',
-              type: 'standard',
-              shape: 'rectangular',
-              text: 'signin_with',
-              logo_alignment: 'left',
-              width: 380
-            });
-          }
         } catch (err) {
           console.warn('Google GSI init notice:', err);
         }
@@ -335,9 +320,6 @@ export default function LoginPage({ onLoginSuccess }) {
               {error}
             </div>
           )}
-
-          {/* Official Google Button Container */}
-          <div id="google-btn-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}></div>
 
           {/* Primary Sign-In Button */}
           <button
