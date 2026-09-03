@@ -6,14 +6,23 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const STOCKS_FILE = path.join(__dirname, '../data/indianStocks.json');
-let masterStocks = [];
+// Try multiple paths so it works locally AND in Vercel serverless bundle
+const STOCK_FILE_CANDIDATES = [
+  path.join(__dirname, '../data/indianStocks.json'),       // local dev
+  path.join(process.cwd(), 'server/data/indianStocks.json'), // Vercel CWD
+  path.join(process.cwd(), 'indianStocks.json')              // fallback
+];
 
-try {
-  const data = fs.readFileSync(STOCKS_FILE, 'utf-8');
-  masterStocks = JSON.parse(data);
-} catch (err) {
-  console.error('Error reading indianStocks.json:', err);
+let masterStocks = [];
+for (const candidate of STOCK_FILE_CANDIDATES) {
+  try {
+    if (fs.existsSync(candidate)) {
+      masterStocks = JSON.parse(fs.readFileSync(candidate, 'utf-8'));
+      break;
+    }
+  } catch (err) {
+    // try next path
+  }
 }
 
 // In-memory cache for live quotes and candles (short TTL = near real-time)

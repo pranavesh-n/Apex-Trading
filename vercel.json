@@ -1,10 +1,8 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": null,
   "functions": {
     "api/**/*.js": {
-      "maxDuration": 15
+      "maxDuration": 15,
+      "includeFiles": "server/data/**"
     }
   },
   "rewrites": [
