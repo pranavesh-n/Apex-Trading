@@ -200,7 +200,7 @@ app.post('/api/orders/calculate-charges', (req, res) => {
  */
 app.post('/api/orders', orderLimiter, async (req, res) => {
   try {
-    const { symbol, action, type, qty, price, product } = req.body;
+    const { symbol, action, type, orderType = type || 'MARKET', qty, price, limitPrice, product } = req.body;
     
     // Strict input validation
     if (!symbol || typeof symbol !== 'string') {
@@ -210,9 +210,18 @@ app.post('/api/orders', orderLimiter, async (req, res) => {
     if (!Number.isInteger(sanitizedQty) || sanitizedQty <= 0 || sanitizedQty > 100000) {
       return res.status(400).json({ success: false, error: 'Quantity must be a positive integer between 1 and 100,000' });
     }
-    const sanitizedPrice = parseFloat(price);
-    if (isNaN(sanitizedPrice) || sanitizedPrice < 0) {
-      return res.status(400).json({ success: false, error: 'Invalid price specification' });
+    let sanitizedPrice = null;
+    if (orderType === 'LIMIT') {
+      const p = limitPrice != null ? limitPrice : price;
+      sanitizedPrice = parseFloat(p);
+      if (isNaN(sanitizedPrice) || sanitizedPrice <= 0) {
+        return res.status(400).json({ success: false, error: 'Limit price must be greater than 0' });
+      }
+    } else if (price != null && price !== '') {
+      sanitizedPrice = parseFloat(price);
+      if (isNaN(sanitizedPrice) || sanitizedPrice < 0) {
+        return res.status(400).json({ success: false, error: 'Invalid price specification' });
+      }
     }
 
     const orderResult = await placeOrder({

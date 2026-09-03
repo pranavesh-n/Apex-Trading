@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, ShieldAlert, Target, Info, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, ShieldAlert, Target, Info, Sparkles, CheckCircle2, Calculator, Percent, Scale } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatCurrency, formatINR } from '../utils/formatters';
 
@@ -73,9 +73,76 @@ export default function OrderTicket({
     }
   }, [product, action, ltp, limitPrice, qty, orderType]);
 
+  const [riskPercent, setRiskPercent] = useState(1); // 1% Total Wallet Risk Rule
+  const [isTotalAmountMode, setIsTotalAmountMode] = useState(false); // Per-Share vs Total Position Mode
+
   const effectivePrice = orderType === 'LIMIT' && limitPrice ? parseFloat(limitPrice) : ltp;
-  const orderValue = effectivePrice * (parseInt(qty, 10) || 0);
+  const currentQty = parseInt(qty, 10) || 0;
+  const orderValue = effectivePrice * currentQty;
   const totalRequired = orderValue + (charges?.total || 0);
+
+  // Parse Stop Loss & Target whether user typed Per-Share price or Total Position Amount (amt * qty)
+  let slPerShare = null;
+  let slTotalAmount = null;
+  if (stopLoss && !isNaN(parseFloat(stopLoss))) {
+    const rawSL = parseFloat(stopLoss);
+    if (isTotalAmountMode || (currentQty > 0 && rawSL > effectivePrice * 1.5)) {
+      slTotalAmount = rawSL;
+      slPerShare = currentQty > 0 ? +(rawSL / currentQty).toFixed(2) : rawSL;
+    } else {
+      slPerShare = rawSL;
+      slTotalAmount = +(rawSL * currentQty).toFixed(2);
+    }
+  }
+
+  let tgtPerShare = null;
+  let tgtTotalAmount = null;
+  if (target && !isNaN(parseFloat(target))) {
+    const rawTgt = parseFloat(target);
+    if (isTotalAmountMode || (currentQty > 0 && rawTgt > effectivePrice * 1.5)) {
+      tgtTotalAmount = rawTgt;
+      tgtPerShare = currentQty > 0 ? +(rawTgt / currentQty).toFixed(2) : rawTgt;
+    } else {
+      tgtPerShare = rawTgt;
+      tgtTotalAmount = +(rawTgt * currentQty).toFixed(2);
+    }
+  }
+
+  // Calculate 1% Risk Metrics based on user's trading wallet
+  const totalWallet = cashBalance > 0 ? cashBalance : 100000;
+  const riskPerShare = slPerShare ? Math.abs(effectivePrice - slPerShare) : null;
+  const totalRisk = riskPerShare && currentQty > 0 ? +(riskPerShare * currentQty).toFixed(2) : null;
+  const walletRiskPct = totalRisk ? +((totalRisk / totalWallet) * 100).toFixed(1) : null;
+
+  const rewardPerShare = tgtPerShare ? Math.abs(tgtPerShare - effectivePrice) : null;
+  const totalReward = rewardPerShare && currentQty > 0 ? +(rewardPerShare * currentQty).toFixed(2) : null;
+  const walletRewardPct = totalReward ? +((totalReward / totalWallet) * 100).toFixed(1) : null;
+
+  const riskRewardRatio = riskPerShare && rewardPerShare && riskPerShare > 0 ? (rewardPerShare / riskPerShare).toFixed(1) : null;
+
+  // Apply 1% Total Wallet Risk Rule to auto-size quantity and calculate 1:2 Target
+  const applyRiskRule = (rulePct = 1) => {
+    if (!effectivePrice || effectivePrice <= 0) return;
+    setRiskPercent(rulePct);
+    const maxTotalRisk = totalWallet * (rulePct / 100);
+
+    // If no Stop Loss set, use logical 2% stop loss
+    let sl = slPerShare;
+    if (!sl) {
+      sl = action === 'BUY' ? +(effectivePrice * 0.98).toFixed(2) : +(effectivePrice * 1.02).toFixed(2);
+      setStopLoss(isTotalAmountMode ? (sl * (currentQty || 10)).toFixed(0) : sl.toString());
+    }
+
+    const rps = Math.abs(effectivePrice - sl);
+    if (rps > 0) {
+      const calculatedQty = Math.max(1, Math.floor(maxTotalRisk / rps));
+      setQty(calculatedQty);
+
+      // 1:2 Risk to Reward target
+      const tgt = action === 'BUY' ? +(effectivePrice + rps * 2).toFixed(2) : +(effectivePrice - rps * 2).toFixed(2);
+      setTarget(isTotalAmountMode ? (tgt * calculatedQty).toFixed(0) : tgt.toString());
+    }
+  };
 
   // Quick allocation buttons
   const handlePercentAlloc = (pct) => {
@@ -104,8 +171,8 @@ export default function OrderTicket({
           orderType,
           qty: parseInt(qty, 10),
           limitPrice: orderType === 'LIMIT' ? parseFloat(limitPrice) : null,
-          stopLoss: stopLoss ? parseFloat(stopLoss) : null,
-          target: target ? parseFloat(target) : null,
+          stopLoss: slPerShare != null ? slPerShare : null,
+          target: tgtPerShare != null ? tgtPerShare : null,
           thesis: thesis.trim() || `${selectedTag} setup on ${quote.shortName || quote.symbol}`,
           tags: [selectedTag, product, quote.sector]
         })
@@ -352,52 +419,185 @@ export default function OrderTicket({
           </div>
         )}
 
-        {/* Risk Management: Stop Loss & Target */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <div>
-            <label style={{ fontSize: '0.72rem', color: '#fda4af', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-              <ShieldAlert size={12} /> STOP LOSS (₹)
-            </label>
-            <input
-              type="number"
-              step="0.05"
-              value={stopLoss}
-              onChange={(e) => setStopLoss(e.target.value)}
-              placeholder="Optional SL"
-              className="font-mono"
-              style={{
-                width: '100%',
-                background: '#0a0e17',
-                border: '1px solid #1e293b',
-                color: '#f43f5e',
-                padding: '8px 10px',
-                borderRadius: '6px',
-                fontSize: '0.85rem'
-              }}
-            />
+        {/* Risk Management & 1% Wallet Risk Calculator */}
+        <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid #1a2333', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          
+          {/* Header with 1% Rule Sizer and Mode Toggle */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Scale size={13} color="#38bdf8" />
+              <span style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 700, letterSpacing: '0.3px' }}>
+                1% WALLET RISK SIZER
+              </span>
+            </div>
+
+            {/* Per-Share vs Total Position Toggle */}
+            <div style={{ display: 'flex', background: '#0a0e17', borderRadius: '4px', padding: '2px', border: '1px solid #1e293b' }}>
+              <button
+                type="button"
+                onClick={() => setIsTotalAmountMode(false)}
+                style={{
+                  background: !isTotalAmountMode ? '#1e293b' : 'transparent',
+                  color: !isTotalAmountMode ? '#38bdf8' : '#64748b',
+                  border: 'none',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title="Enter price per share (Standard Broker Style)"
+              >
+                Per Share (₹)
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsTotalAmountMode(true)}
+                style={{
+                  background: isTotalAmountMode ? '#1e293b' : 'transparent',
+                  color: isTotalAmountMode ? '#38bdf8' : '#64748b',
+                  border: 'none',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title="Enter total amount (amt * qty)"
+              >
+                Total Amt (₹)
+              </button>
+            </div>
           </div>
-          <div>
-            <label style={{ fontSize: '0.72rem', color: '#86efac', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-              <Target size={12} /> TARGET (₹)
-            </label>
-            <input
-              type="number"
-              step="0.05"
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              placeholder="Optional Target"
-              className="font-mono"
-              style={{
-                width: '100%',
-                background: '#0a0e17',
-                border: '1px solid #1e293b',
-                color: '#10b981',
-                padding: '8px 10px',
-                borderRadius: '6px',
-                fontSize: '0.85rem'
-              }}
-            />
+
+          {/* Quick Risk Buttons: 0.5%, 1% (Rule), 2% */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0a0e17', padding: '6px 8px', borderRadius: '6px', border: '1px solid #1e293b' }}>
+            <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+              Max Risk: <b style={{ color: '#fff' }}>{formatCurrency(totalWallet * (riskPercent / 100), currency)}</b> ({riskPercent}%)
+            </span>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {[0.5, 1, 2].map(pct => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => applyRiskRule(pct)}
+                  style={{
+                    background: riskPercent === pct ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.03)',
+                    color: riskPercent === pct ? '#38bdf8' : '#94a3b8',
+                    border: `1px solid ${riskPercent === pct ? 'rgba(56, 189, 248, 0.4)' : '#1e293b'}`,
+                    borderRadius: '4px',
+                    padding: '2px 6px',
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={`Auto-calculate quantity based on ${pct}% wallet risk`}
+                >
+                  {pct}% {pct === 1 ? '⭐' : ''}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => applyRiskRule(1)}
+                style={{
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(56, 189, 248, 0.2))',
+                  color: '#10b981',
+                  border: '1px solid rgba(16, 185, 129, 0.4)',
+                  borderRadius: '4px',
+                  padding: '2px 7px',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+              >
+                <Calculator size={10} /> Auto-Size
+              </button>
+            </div>
           </div>
+
+          {/* Stop Loss & Target Inputs */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div>
+              <label style={{ fontSize: '0.7rem', color: '#fda4af', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                <ShieldAlert size={12} /> {isTotalAmountMode ? 'STOP LOSS TOTAL (₹)' : 'STOP LOSS / SHARE (₹)'}
+              </label>
+              <input
+                type="number"
+                step="0.05"
+                value={stopLoss}
+                onChange={(e) => setStopLoss(e.target.value)}
+                placeholder={isTotalAmountMode ? `e.g. ${(effectivePrice * currentQty * 0.98).toFixed(0)}` : `e.g. ${(effectivePrice * 0.98).toFixed(1)}`}
+                className="font-mono"
+                style={{
+                  width: '100%',
+                  background: '#0a0e17',
+                  border: '1px solid #1e293b',
+                  color: '#f43f5e',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem'
+                }}
+              />
+              {slPerShare && (
+                <span style={{ fontSize: '0.62rem', color: '#94a3b8', display: 'block', marginTop: '2px' }}>
+                  {isTotalAmountMode ? `Trigger: ₹${slPerShare}/sh` : `Total: ₹${slTotalAmount}`}
+                  {totalRisk ? ` • Loss: -₹${totalRisk}` : ''}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.7rem', color: '#86efac', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                <Target size={12} /> {isTotalAmountMode ? 'TARGET TOTAL (₹)' : 'TARGET / SHARE (₹)'}
+              </label>
+              <input
+                type="number"
+                step="0.05"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder={isTotalAmountMode ? `e.g. ${(effectivePrice * currentQty * 1.04).toFixed(0)}` : `e.g. ${(effectivePrice * 1.04).toFixed(1)}`}
+                className="font-mono"
+                style={{
+                  width: '100%',
+                  background: '#0a0e17',
+                  border: '1px solid #1e293b',
+                  color: '#10b981',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem'
+                }}
+              />
+              {tgtPerShare && (
+                <span style={{ fontSize: '0.62rem', color: '#94a3b8', display: 'block', marginTop: '2px' }}>
+                  {isTotalAmountMode ? `Target: ₹${tgtPerShare}/sh` : `Total: ₹${tgtTotalAmount}`}
+                  {totalReward ? ` • Profit: +₹${totalReward}` : ''}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Dynamic 1:2 Risk to Reward Summary Card */}
+          {(totalRisk || totalReward) && (
+            <div style={{ background: '#0a0e17', border: '1px solid #1e293b', borderRadius: '6px', padding: '6px 8px', fontSize: '0.7rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ color: '#fda4af' }}>Max Loss: <b>-₹{totalRisk || 0}</b></span>
+                {walletRiskPct && <span style={{ color: '#64748b', fontSize: '0.62rem' }}> ({walletRiskPct}% wallet)</span>}
+              </div>
+              {riskRewardRatio && (
+                <div style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, fontSize: '0.65rem' }}>
+                  1:{riskRewardRatio} R:R
+                </div>
+              )}
+              <div>
+                <span style={{ color: '#86efac' }}>Est. Gain: <b>+₹{totalReward || 0}</b></span>
+                {walletRewardPct && <span style={{ color: '#64748b', fontSize: '0.62rem' }}> (+{walletRewardPct}% wallet)</span>}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stock Picking Thesis / Reason For Trade */}
