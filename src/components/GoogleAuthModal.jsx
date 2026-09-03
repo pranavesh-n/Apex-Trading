@@ -81,14 +81,15 @@ export default function GoogleAuthModal({ isOpen, onClose, currentUser, onLoginS
     setError(null);
     try {
       // Direct fast login fallback
+      const savedName = localStorage.getItem('ax_trader_name') || 'Pranavesh';
       const res = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           profile: {
-            email: 'trader@gmail.com',
-            name: 'Apex Trader',
-            picture: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
+            email: `${savedName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+            name: savedName,
+            picture: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(savedName)}&backgroundColor=10b981,0284c7&textColor=ffffff`
           }
         })
       });

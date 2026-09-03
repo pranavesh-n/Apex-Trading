@@ -22,6 +22,10 @@ export default function LoginPage({ onLoginSuccess }) {
     return () => clearInterval(timer);
   }, []);
 
+  const [traderName, setTraderName] = useState(() => {
+    return localStorage.getItem('ax_trader_name') || 'Pranavesh';
+  });
+
   // Initialize Google Identity Services
   useEffect(() => {
     const initGoogle = () => {
@@ -62,6 +66,10 @@ export default function LoginPage({ onLoginSuccess }) {
       });
       const data = await res.json();
       if (data.success && data.data?.user) {
+        if (data.data.user.name) {
+          setTraderName(data.data.user.name);
+          localStorage.setItem('ax_trader_name', data.data.user.name);
+        }
         onLoginSuccess(data.data.user);
       } else {
         throw new Error(data.error || 'Authentication failed');
@@ -74,31 +82,72 @@ export default function LoginPage({ onLoginSuccess }) {
   };
 
   const handleGoogleClick = () => {
+    // 1. Try Google OAuth2 Interactive Popup
+    if (window.google?.accounts?.oauth2 && googleClientId) {
+      try {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: googleClientId,
+          scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+          callback: async (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              setLoading(true);
+              try {
+                const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                });
+                const info = await infoRes.json();
+                if (info && info.email) {
+                  const googleName = info.name || info.given_name || traderName;
+                  setTraderName(googleName);
+                  localStorage.setItem('ax_trader_name', googleName);
+                  await triggerLoginWithProfile({
+                    email: info.email,
+                    name: googleName,
+                    picture: info.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(googleName)}&backgroundColor=10b981,0284c7&textColor=ffffff`
+                  });
+                  return;
+                }
+              } catch (e) {
+                console.warn('UserInfo fetch notice:', e);
+              }
+            }
+            triggerLoginWithProfile();
+          }
+        });
+        client.requestAccessToken({ prompt: 'select_account' });
+        return;
+      } catch (err) {
+        console.warn('Google token client notice:', err);
+      }
+    }
+
+    // 2. Try Google One-Tap
     if (window.google?.accounts?.id) {
       window.google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          triggerFastLogin();
+          triggerLoginWithProfile();
         }
       });
     } else {
-      triggerFastLogin();
+      triggerLoginWithProfile();
     }
   };
 
-  const triggerFastLogin = async () => {
+  const triggerLoginWithProfile = async (customProfile = null) => {
     setLoading(true);
     setError(null);
+    const finalName = customProfile?.name || traderName.trim() || 'Pranavesh';
+    const profile = customProfile || {
+      email: `${finalName.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
+      name: finalName,
+      picture: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(finalName)}&backgroundColor=10b981,0284c7&textColor=ffffff`
+    };
+
     try {
       const res = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile: {
-            email: 'trader@gmail.com',
-            name: 'Apex Trader',
-            picture: 'https://lh3.googleusercontent.com/a/default-user=s96-c'
-          }
-        })
+        body: JSON.stringify({ profile })
       });
       const data = await res.json();
       if (data.success && data.data?.user) {
@@ -302,6 +351,37 @@ export default function LoginPage({ onLoginSuccess }) {
             </div>
           )}
 
+          {/* Trader Name Input */}
+          <div style={{ textAlign: 'left', marginBottom: '18px' }}>
+            <label style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700, display: 'block', marginBottom: '6px', letterSpacing: '0.3px' }}>
+              YOUR TRADER NAME
+            </label>
+            <input
+              type="text"
+              value={traderName}
+              onChange={(e) => {
+                setTraderName(e.target.value);
+                localStorage.setItem('ax_trader_name', e.target.value);
+              }}
+              placeholder="e.g. Pranavesh"
+              style={{
+                width: '100%',
+                background: '#070c16',
+                border: '1px solid #1e293b',
+                color: '#f8fafc',
+                padding: '11px 14px',
+                borderRadius: '12px',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                outline: 'none',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.2s ease'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#10b981'}
+              onBlur={(e) => e.target.style.borderColor = '#1e293b'}
+            />
+          </div>
+
           {/* Official Google Sign-In Button */}
           <button
             type="button"
@@ -361,7 +441,7 @@ export default function LoginPage({ onLoginSuccess }) {
               />
             </svg>
 
-            <span>{loading ? 'Connecting to Google...' : 'Sign in with Google'}</span>
+            <span>{loading ? 'Connecting to Google...' : (traderName.trim() ? `Continue as ${traderName.trim()}` : 'Sign in with Google')}</span>
           </button>
 
           {/* Value Pillars List */}
